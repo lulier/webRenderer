@@ -1,0 +1,22 @@
+{
+  "name": "webrenderer",
+  "version": "1.0.0",
+  "description": "tiny web renderer, inspire by tinyRenderer https://github.com/ssloy/tinyrenderer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lulier/webRenderer.git"
+  },
+  "author": "lulier",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lulier/webRenderer/issues"
+  },
+  "homepage": "https://github.com/lulier/webRenderer#readme",
+  "dependencies": {
+    "tga": "^1.0.4"
+  }
+}
