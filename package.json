@@ -16,7 +16,5 @@
     "url": "https://github.com/lulier/webRenderer/issues"
   },
   "homepage": "https://github.com/lulier/webRenderer#readme",
-  "dependencies": {
-    "tga": "^1.0.4"
-  }
+  "dependencies": {}
 }
