@@ -1,5 +1,6 @@
 
 var fs = require('fs');
+const { isDeepStrictEqual } = require('util');
 class TGAColor{
     constructor(r=255,g=255,b=255,a=255){
         this.r = r;
@@ -9,7 +10,6 @@ class TGAColor{
     }
 }
 
-// 直观上我们比较习惯用从上到下，从左到右的方式去处理像素，但是计算机是从下到上，从左到右的方式处理图片的，所以需要做一次y坐标的转换
 class TGAImage {
 
     constructor(width, height, dontFlipY = false, pixels = null){
@@ -55,11 +55,8 @@ class TGAImage {
 
     set(i,j,color){
         let index = 18;
-        if(this.isFlipY){
-            index = index + ((this.height - i - 1)*this.width+j)*4;
-        } else {
-            index = index + (i*this.width+j)*4;
-        }
+        
+        index = index + (i+j*this.width)*4;
 
         if(index + 3 < this.buffer.length){
             this.buffer.writeUInt8(color.b, index);       
@@ -163,7 +160,7 @@ class TGALoader{
     }
 
     addPixel(arr, offset, idx) {
-        if (this.isFlipY) {
+        if (!this.isFlipY) {
             var y = this.height - 1 - Math.floor(idx / this.width);
             idx = y * this.width + idx % this.width;
         }
