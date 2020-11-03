@@ -13,9 +13,9 @@ const blackColor = new TGA.TGAColor(0,0,0,255);
 const image = new TGA.TGAImage(100,100);
 
 let points = [];
-points.push(new Vector(10,20));
-points.push(new Vector(50,20));
-points.push(new Vector(40,60));
+points.push(new Vector(0,20));
+points.push(new Vector(0,30));
+points.push(new Vector(0,60));
 GL.drawTriangle(points,image,redColor);
 // GL.drawLine(new math.Vector(0,10),new math.Vector(50,20),image,redColor);
 // GL.drawLine(new math.Vector(10,0),new math.Vector(20,50),image,whiteColor);

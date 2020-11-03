@@ -76,7 +76,11 @@ class GL {
     static barycentric(points,point){
         let result = Vector.cross(new Vector(points[1].x - points[0].x,points[2].x - points[0].x,points[0].x - point.x),
                             new Vector(points[1].y - points[0].y,points[2].y - points[0].y,points[0].y - point.y));
-        return new Vector(1-(result.x+result.y)/result.z,result.y/result.z,result.x/result.z);
+        if(!result.z){
+            return new Vector(-1,1,1);
+        }
+
+        return new Vector(1-(result.x+result.y)/result.z,result.x/result.z,result.y/result.z);
     }
 }
 
