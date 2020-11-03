@@ -16,5 +16,7 @@
     "url": "https://github.com/lulier/webRenderer/issues"
   },
   "homepage": "https://github.com/lulier/webRenderer#readme",
-  "dependencies": {}
+  "dependencies": {
+    "webgl-obj-loader": "^2.0.8"
+  }
 }

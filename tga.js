@@ -1,6 +1,5 @@
 
 var fs = require('fs');
-const { isDeepStrictEqual } = require('util');
 class TGAColor{
     constructor(r=255,g=255,b=255,a=255){
         this.r = r;
