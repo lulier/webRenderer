@@ -43,6 +43,11 @@ function loadObj(){
         worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
     }
 
+    let zBuffer = new Array(image.width*image.height);
+    for (let i = 0; i < zBuffer.length; i++) {
+        zBuffer[i] = Number.MIN_SAFE_INTEGER;
+    }
+    
     for (let i = 0; i < mesh.indices.length; i+=3) {
         const point1 = screenCoordinates[mesh.indices[i]];
         const point2 = screenCoordinates[mesh.indices[i+1]];
@@ -56,7 +61,7 @@ function loadObj(){
         let intensity = normal.x*lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z;
         // console.log(intensity);
         if(intensity > 0){
-            GL.drawTriangle([point1,point2,point3],
+            GL.drawTriangle([point1,point2,point3],zBuffer,
                 image,new TGAColor(255*intensity,255*intensity,255*intensity,255));
         }
         
