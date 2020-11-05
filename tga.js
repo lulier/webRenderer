@@ -102,6 +102,7 @@ class TGALoader{
         }
         this.readPixels();
     }
+    
     readHeader() {
         
         var header = TGALoader.getHeader(this.buffer);
