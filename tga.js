@@ -7,6 +7,8 @@ class TGAColor{
         this.b = b;
         this.a = a;
     }
+
+    
 }
 
 class TGAImage {
