@@ -39,11 +39,11 @@ function loadObj(){
     var mesh = new OBJ.Mesh(objFile);
 
     // setCamera, calculate view matrix、projection matrix
-    const cameraPos = new Vector(0,0,1.5);
+    const cameraPos = new Vector(0,0,3);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     const modelViewMatrix = createViewMatrix(cameraPos,targetPosition,up);
-    const projectionMatrix = createProjectionMatrix(-0.5,0.5,-0.5,0.5,0.5,1.0);
+    const projectionMatrix = createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,0.5);
     const viewportMatrix = createViewportMatrix(0,0,image.width-1,image.height-1);
 
     
@@ -98,7 +98,7 @@ function getScreenCoordinate(x,y,z,modelViewMatrix,projectionMatrix,viewportMatr
     // let temp = viewportMatrix.mulV(new Vector(x,y,z));
     temp.x = Math.round(temp.x / temp.w);
     temp.y = Math.round(temp.y / temp.w);
-    temp.z = z;
+    temp.z = temp.z / temp.w;
     return temp;
 }
 
