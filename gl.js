@@ -59,6 +59,7 @@ class GL {
         }
 
         let tempVector = new Vector(0,0,0);
+        let tempColor = new TGAColor(0,0,0,255)
         for (let i = boxMin.x; i <= boxMax.x; i++) {
             for (let j = boxMin.y; j <= boxMax.y; j++) {
                 tempVector.x = i;
@@ -79,7 +80,10 @@ class GL {
                     let pixelIndex = u+v*texture.width;
                     // pixelIndex = i + (j-10) * texture.width;
                     zBuffer[i+image.width*j] = tempVector.z;
-                    let tempColor = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4 + 1],texture.pixels[pixelIndex*4 + 2],texture.pixels[pixelIndex*4 + 3])
+                    tempColor.r = texture.pixels[pixelIndex*4] * color.r / 255;
+                    tempColor.g = texture.pixels[pixelIndex*4+1] * color.g / 255;
+                    tempColor.b = texture.pixels[pixelIndex*4+2] * color.b / 255;
+                    tempColor.a = texture.pixels[pixelIndex*4+3] * color.a / 255;
                     image.set(i,j,tempColor);
                 }
                 
