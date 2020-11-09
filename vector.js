@@ -1129,6 +1129,27 @@ Matrix.prototype.getColumn = function (j) {
 };
 
 /**
+ * Multiply vector.
+ * 
+ * @param b vector
+ * @return vector
+ */
+
+ Matrix.prototype.mulV = function(v){
+    let result = new Vector(0,0,0);
+    let row1 = this.getRow(0);
+    let row2 = this.getRow(1);
+    let row3 = this.getRow(2);
+    let row4 = this.getRow(3);
+    result.x = v.x * row1[0] + v.y * row1[1] + v.z * row1[2] + v.w * row1[3];
+    result.y = v.x * row2[0] + v.y * row2[1] + v.z * row2[2] + v.w * row2[3];
+    result.z = v.x * row3[0] + v.y * row3[1] + v.z * row3[2] + v.w * row3[3];
+    result.w = v.x * row4[0] + v.y * row4[1] + v.z * row4[2] + v.w * row4[3];
+    return result;
+ }
+
+
+/**
  * Multiply matrix.
  *
  * The function expects to receive right-hand matrix as an input argument.

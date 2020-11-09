@@ -2,7 +2,7 @@ var fs = require('fs');
 const TGA = require('./tga');
 const GL = require("./gl");
 const math = require("./vector");
-const { Vector } = require('./vector');
+const { Vector, Matrix } = require('./vector');
 var OBJ = require('webgl-obj-loader');
 const { TGAColor, TGALoader } = require('./tga');
 const vector = require('./vector');
@@ -37,15 +37,23 @@ function loadObj(){
     const texture = new TGALoader(fs.readFileSync("./obj/african_head/african_head_diffuse.tga"));
     
     var mesh = new OBJ.Mesh(objFile);
-    // console.log(Object.keys(mesh));
+
+    // setCamera, calculate view matrix、projection matrix
+    const cameraPos = new Vector(0,0,1.5);
+    const targetPosition = new Vector(0,0,0);
+    const up = new Vector(0,1,0);
+    const modelViewMatrix = createViewMatrix(cameraPos,targetPosition,up);
+    const projectionMatrix = createProjectionMatrix(-0.5,0.5,-0.5,0.5,0.5,1.0);
+    const viewportMatrix = createViewportMatrix(0,0,image.width-1,image.height-1);
+
+    
     let screenCoordinates = [];
     let worldCoordinates = [];
     let uvCoordinates = [];
     for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
-        let temp = new Vector(0,0);
-        temp.x = Math.round((mesh.vertices[i] + 1) * image.width / 2);
-        temp.y = Math.round((mesh.vertices[i + 1] + 1) * image.height / 2);
-        screenCoordinates.push(temp);
+        
+        screenCoordinates.push(getScreenCoordinate(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2],
+            modelViewMatrix,projectionMatrix,viewportMatrix));
         worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
         uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1]));
     }
@@ -79,6 +87,67 @@ function loadObj(){
     }
 
     image.output();
+}
+
+function getScreenCoordinate(x,y,z,modelViewMatrix,projectionMatrix,viewportMatrix){
+    // 将本地坐标转为屏幕坐标
+    // screen = viewport * projection * view * model * local
+    let matrix1 = Matrix.mul(viewportMatrix,projectionMatrix);
+    let matrix2 = Matrix.mul(matrix1,modelViewMatrix);
+    let temp = matrix2.mulV(new Vector(x,y,z));
+    // let temp = viewportMatrix.mulV(new Vector(x,y,z));
+    temp.x = Math.round(temp.x / temp.w);
+    temp.y = Math.round(temp.y / temp.w);
+    temp.z = z;
+    return temp;
+}
+
+function createViewportMatrix(startx,starty,width,height){
+    const depth = 255;
+    const matrix = new Matrix([
+        [width/2,0,0,width/2+startx],
+        [0,height/2,0,height/2+starty],
+        [0,0,depth/2,depth/2],
+        [0,0,0,1]
+    ]);
+
+    return matrix;
+}
+
+// 创建视图矩阵
+function createViewMatrix(cameraPos,targetPosition,up){
+    const forward = Vector.sub(cameraPos,targetPosition).normalize();
+    const right = Vector.cross(forward,up)
+    const realUp = Vector.cross(right,forward);
+
+    const leftMatrix = new Matrix([
+        [right.x,right.y,right.z,0],
+        [realUp.x,realUp.y,realUp.z,0],
+        [forward.x,forward.y,forward.z,0],
+        [0,0,0,1]
+    ])
+
+    const rightMatrix = new Matrix([
+        [1,0,0,-cameraPos.x],
+        [0,1,0,-cameraPos.y],
+        [0,0,1,-cameraPos.z],
+        [0,0,0,1]
+    ])
+
+    return Matrix.mul(leftMatrix,rightMatrix);
+}
+
+
+// 创建投影矩阵
+// http://www.songho.ca/opengl/gl_projectionmatrix.html
+function createProjectionMatrix(left,right,bottom,top,near,far){
+
+    return new Matrix([
+        [2*near/(right - left),0,(right + left)/(right - left),0],
+        [0,2*near/(top - bottom),(top + bottom)/(top - bottom),0],
+        [0,0,-(far + near)/(far - near),-2*far*near/(far - near)],
+        [0,0,-1,0]
+    ]);
 }
 
 function readTGAFile(){
