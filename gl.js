@@ -84,11 +84,15 @@ class GL {
                     Shader.varying_uv.v = Math.round(Shader.varying_uv.v * (texture.height - 1));
 
 
-                    // to do vertextNormal 不能直接使用，需要做变换
+                    // 因为当前的model matrix是单位矩阵，所以normal变量可以不变换直接使用
                     Shader.varying_normal.x = vertextNormals[0].x * bc.x + vertextNormals[1].x * bc.y + vertextNormals[2].x * bc.z;
                     Shader.varying_normal.y = vertextNormals[0].y * bc.x + vertextNormals[1].y * bc.y + vertextNormals[2].y * bc.z;
                     Shader.varying_normal.z = vertextNormals[0].z * bc.x + vertextNormals[1].z * bc.y + vertextNormals[2].z * bc.z;
                     Shader.varying_normal.normalize();
+
+                    Shader.varying_fragPos.x = worldPositions[0].x * bc.x + worldPositions[1].x * bc.y + worldPositions[2].x * bc.z;
+                    Shader.varying_fragPos.y = worldPositions[0].y * bc.x + worldPositions[1].y * bc.y + worldPositions[2].y * bc.z;
+                    Shader.varying_fragPos.z = worldPositions[0].z * bc.x + worldPositions[1].z * bc.y + worldPositions[2].z * bc.z;
                     
                     const {discard,finalColor} = Shader.fragment(texture,color);
                     if(!discard){
@@ -186,12 +190,14 @@ class Shader{
         let tempColor = new TGAColor(color.r,color.g,color.b,255);
         let ambient = 0.1;
         let diffuse = Math.max(0,Vector.dot(Shader.varying_normal,GL.lightDir));
-        let specular = 0.1;
-        let lightArg = ambient + diffuse + specular;
+        let viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos);
+        let halfVector = Vector.add(viewDir,GL.lightDir).div(2).normalize();
+
+        let specular = Math.max(0,Vector.dot(Shader.varying_normal,halfVector)) * 0.2;
+        let lightArg = Math.min(1,ambient + diffuse + specular);
         tempColor.r = tempColor.r * lightArg;
         tempColor.g = tempColor.g * lightArg;
         tempColor.b = tempColor.b * lightArg;
-
        
         let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
         let baseMap = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4+1],texture.pixels[pixelIndex*4+2],texture.pixels[pixelIndex*4+3]);
@@ -208,6 +214,8 @@ class Shader{
 Shader.varying_uv = {u:1,v:1};
 
 Shader.varying_normal = new Vector(0,0,1);
+
+Shader.varying_fragPos = new Vector(0,0,1);
 
 module.exports = GL;
 

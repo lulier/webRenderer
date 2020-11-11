@@ -29,7 +29,7 @@ function loadObj(){
     GL.cameraPos = new Vector(0,0,3);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
-    GL.createViewMatrix(cameraPos,targetPosition,up);
+    GL.createViewMatrix(GL.cameraPos,targetPosition,up);
     GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,0.5);
     GL.createViewportMatrix(0,0,image.width-1,image.height-1);
     let zBuffer = new Array(image.width*image.height);
