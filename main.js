@@ -23,9 +23,10 @@ function loadObj(){
     const texture = new TGALoader(fs.readFileSync("./obj/african_head/african_head_diffuse.tga"));
     
     var mesh = new OBJ.Mesh(objFile);
+    console.log(Object.keys(mesh));
 
-    // setCamera, calculate view matrix、projection matrix
-    const cameraPos = new Vector(0,0,3);
+    // init gl setting
+    GL.cameraPos = new Vector(0,0,3);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(cameraPos,targetPosition,up);
@@ -36,17 +37,17 @@ function loadObj(){
         zBuffer[i] = Number.MIN_SAFE_INTEGER;
     }
 
-    let lightDir = new Vector(0,0,1);
-
-    
     let worldCoordinates = [];
     let uvCoordinates = [];
+    let vertextNormals = [];
     for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
         worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
         uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1]));
+        vertextNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
     }
 
 
+    // iterate to draw all triangles
     for (let i = 0; i < mesh.indices.length; i+=3) {
         const point1 = worldCoordinates[mesh.indices[i]];
         const point2 = worldCoordinates[mesh.indices[i+1]];
@@ -56,16 +57,12 @@ function loadObj(){
         const uv2 = uvCoordinates[mesh.indices[i+1]];
         const uv3 = uvCoordinates[mesh.indices[i+2]];
 
-        const ab = Vector.sub(worldCoordinates[mesh.indices[i+1]],worldCoordinates[mesh.indices[i]]);
-        const ac = Vector.sub(worldCoordinates[mesh.indices[i+2]],worldCoordinates[mesh.indices[i]]);
-        let normal = Vector.cross(ab,ac).normalize();
-        
-        let intensity = normal.x*lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z;
-        // console.log(intensity);
-        if(intensity > 0){
-            GL.drawTriangle([point1,point2,point3],[uv1,uv2,uv3],texture,zBuffer,
-                image,new TGAColor(255*intensity,255*intensity,255*intensity,255));
-        }
+        const normal1 = vertextNormals[mesh.indices[i]];
+        const normal2 = vertextNormals[mesh.indices[i+1]];
+        const normal3 = vertextNormals[mesh.indices[i+2]];
+    
+        GL.drawTriangle([point1,point2,point3],[uv1,uv2,uv3],[normal1,normal2,normal3],texture,zBuffer,
+            image,new TGAColor(255,255,255,255));
         
     }
 

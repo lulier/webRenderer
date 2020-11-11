@@ -1,6 +1,7 @@
 const math = require("./vector");
 const { Vector, Matrix } = require("./vector");
 const { TGAColor } = require("./tga");
+const vector = require("./vector");
 
 class GL {
 
@@ -48,7 +49,7 @@ class GL {
         }
     }
 
-    static drawTriangle(worldPositions,uvCoordinates,texture,zBuffer,image,color){
+    static drawTriangle(worldPositions,uvCoordinates,vertextNormals,texture,zBuffer,image,color){
         let screenPositions = worldPositions.map((position,index)=>{
             return Shader.vertext(position);
         });
@@ -81,6 +82,13 @@ class GL {
 
                     Shader.varying_uv.u = Math.round(Shader.varying_uv.u * (texture.width - 1));
                     Shader.varying_uv.v = Math.round(Shader.varying_uv.v * (texture.height - 1));
+
+
+                    // to do vertextNormal 不能直接使用，需要做变换
+                    Shader.varying_normal.x = vertextNormals[0].x * bc.x + vertextNormals[1].x * bc.y + vertextNormals[2].x * bc.z;
+                    Shader.varying_normal.y = vertextNormals[0].y * bc.x + vertextNormals[1].y * bc.y + vertextNormals[2].y * bc.z;
+                    Shader.varying_normal.z = vertextNormals[0].z * bc.x + vertextNormals[1].z * bc.y + vertextNormals[2].z * bc.z;
+                    Shader.varying_normal.normalize();
                     
                     const {discard,finalColor} = Shader.fragment(texture,color);
                     if(!discard){
@@ -155,6 +163,8 @@ class GL {
 GL.modelViewMatrix = new Matrix();
 GL.projectionMatrix = new Matrix();
 GL.viewportMatrix = new Matrix();
+GL.lightDir = new Vector(0,0,1);
+GL.cameraPos = new Vector(0,0,3);
 
 class Shader{
 
@@ -173,12 +183,22 @@ class Shader{
     }
 
     static fragment(texture,color){
-        let tempColor = new TGAColor(0,0,0,255);
+        let tempColor = new TGAColor(color.r,color.g,color.b,255);
+        let ambient = 0.1;
+        let diffuse = Math.max(0,Vector.dot(Shader.varying_normal,GL.lightDir));
+        let specular = 0.1;
+        let lightArg = ambient + diffuse + specular;
+        tempColor.r = tempColor.r * lightArg;
+        tempColor.g = tempColor.g * lightArg;
+        tempColor.b = tempColor.b * lightArg;
+
+       
         let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
-        tempColor.r = texture.pixels[pixelIndex*4] * color.r / 255;
-        tempColor.g = texture.pixels[pixelIndex*4+1] * color.g / 255;
-        tempColor.b = texture.pixels[pixelIndex*4+2] * color.b / 255;
-        tempColor.a = texture.pixels[pixelIndex*4+3] * color.a / 255;
+        let baseMap = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4+1],texture.pixels[pixelIndex*4+2],texture.pixels[pixelIndex*4+3]);
+        tempColor.r = baseMap.r * tempColor.r / 255;
+        tempColor.g = baseMap.g * tempColor.g / 255;
+        tempColor.b = baseMap.b * tempColor.b / 255;
+        tempColor.a = baseMap.a * tempColor.a / 255;
 
         return {discard:false,finalColor:tempColor}
     }
@@ -186,6 +206,8 @@ class Shader{
 
 // 这样写是没法并行执行的
 Shader.varying_uv = {u:1,v:1};
+
+Shader.varying_normal = new Vector(0,0,1);
 
 module.exports = GL;
 

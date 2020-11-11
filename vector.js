@@ -843,10 +843,10 @@ Vector.prototype.dot = function (b) {
     b = Vector.getInstance (b);
 
     /* Compute dot product */
-    this[0] *= b[0];
-    this[1] *= b[1];
-    this[2] *= b[2];
-    return this;
+    // this[0] *= b[0];
+    // this[1] *= b[1];
+    // this[2] *= b[2];
+    return this[0]*b[0] + this[1]*b[1] + this[2]*b[2];
 };
 
 /**
@@ -863,8 +863,7 @@ Vector.prototype.dot = function (b) {
  * @return Vector
  */
 Vector.dot = function (a, b) {
-    var dup = new Vector (a);
-    return dup.dot (b);
+    return a.dot(b);
 };
 
 /**
