@@ -1,6 +1,7 @@
 const math = require("./vector");
-const { Vector } = require("./vector");
+const { Vector, Matrix } = require("./vector");
 const { TGAColor } = require("./tga");
+
 class GL {
 
     static drawLine(vector1,vector2,image,color){
@@ -47,44 +48,45 @@ class GL {
         }
     }
 
-    static drawTriangle(points,uvCoordinates,texture,zBuffer,image,color){
+    static drawTriangle(worldPositions,uvCoordinates,texture,zBuffer,image,color){
+        let screenPositions = worldPositions.map((position,index)=>{
+            return Shader.vertext(position);
+        });
+
         let boxMin = new math.Vector(image.width - 1,image.height - 1);
         let boxMax = new math.Vector(0,0);
-        for (let i = 0; i < points.length; i++) {
-            boxMin.x = Math.max(0,Math.min(boxMin.x,points[i].x));
-            boxMin.y = Math.max(0,Math.min(boxMin.y,points[i].y));
+        for (let i = 0; i < screenPositions.length; i++) {
+            boxMin.x = Math.max(0,Math.min(boxMin.x,screenPositions[i].x));
+            boxMin.y = Math.max(0,Math.min(boxMin.y,screenPositions[i].y));
 
-            boxMax.x = Math.min(image.width - 1,Math.max(boxMax.x,points[i].x));
-            boxMax.y = Math.min(image.height - 1,Math.max(boxMax.y,points[i].y));
+            boxMax.x = Math.min(image.width - 1,Math.max(boxMax.x,screenPositions[i].x));
+            boxMax.y = Math.min(image.height - 1,Math.max(boxMax.y,screenPositions[i].y));
         }
 
         let tempVector = new Vector(0,0,0);
-        let tempColor = new TGAColor(0,0,0,255)
         for (let i = boxMin.x; i <= boxMax.x; i++) {
             for (let j = boxMin.y; j <= boxMax.y; j++) {
                 tempVector.x = i;
                 tempVector.y = j;
-                let bc = this.barycentric(points,tempVector);
-                tempVector.z = points[0].z * bc.x + points[1].z * bc.y + points[2].z * bc.z;
+                let bc = this.barycentric(screenPositions,tempVector);
+                tempVector.z = screenPositions[0].z * bc.x + screenPositions[1].z * bc.y + screenPositions[2].z * bc.z;
                 // console.log(bc);
                 if(bc.x < 0 || bc.y < 0 || bc.z < 0){
                     continue;
                 }
 
                 if(tempVector.z > zBuffer[i+image.width*j]){
-                    let u = uvCoordinates[0].x * bc.x + uvCoordinates[1].x * bc.y + uvCoordinates[2].x * bc.z;
-                    let v = uvCoordinates[0].y * bc.x + uvCoordinates[1].y * bc.y + uvCoordinates[2].y * bc.z;
+                    Shader.varying_uv.u = uvCoordinates[0].x * bc.x + uvCoordinates[1].x * bc.y + uvCoordinates[2].x * bc.z;
+                    Shader.varying_uv.v = uvCoordinates[0].y * bc.x + uvCoordinates[1].y * bc.y + uvCoordinates[2].y * bc.z;
 
-                    u = Math.round(u * (texture.width - 1));
-                    v = Math.round(v * (texture.height - 1));
-                    let pixelIndex = u+v*texture.width;
-                    // pixelIndex = i + (j-10) * texture.width;
-                    zBuffer[i+image.width*j] = tempVector.z;
-                    tempColor.r = texture.pixels[pixelIndex*4] * color.r / 255;
-                    tempColor.g = texture.pixels[pixelIndex*4+1] * color.g / 255;
-                    tempColor.b = texture.pixels[pixelIndex*4+2] * color.b / 255;
-                    tempColor.a = texture.pixels[pixelIndex*4+3] * color.a / 255;
-                    image.set(i,j,tempColor);
+                    Shader.varying_uv.u = Math.round(Shader.varying_uv.u * (texture.width - 1));
+                    Shader.varying_uv.v = Math.round(Shader.varying_uv.v * (texture.height - 1));
+                    
+                    const {discard,finalColor} = Shader.fragment(texture,color);
+                    if(!discard){
+                        zBuffer[i+image.width*j] = tempVector.z;
+                        image.set(i,j,finalColor);
+                    }
                 }
                 
             }
@@ -100,7 +102,90 @@ class GL {
 
         return new Vector(1-(result.x+result.y)/result.z,result.x/result.z,result.y/result.z);
     }
+    
+    static createViewportMatrix(startx,starty,width,height){
+        const depth = 255;
+        const matrix = new Matrix([
+            [width/2,0,0,width/2+startx],
+            [0,height/2,0,height/2+starty],
+            [0,0,depth/2,depth/2],
+            [0,0,0,1]
+        ]);
+    
+        GL.viewportMatrix = matrix;
+    }
+    
+    // 创建视图矩阵
+    static createViewMatrix(cameraPos,targetPosition,up){
+        const forward = Vector.sub(cameraPos,targetPosition).normalize();
+        const right = Vector.cross(forward,up)
+        const realUp = Vector.cross(right,forward);
+    
+        const leftMatrix = new Matrix([
+            [right.x,right.y,right.z,0],
+            [realUp.x,realUp.y,realUp.z,0],
+            [forward.x,forward.y,forward.z,0],
+            [0,0,0,1]
+        ])
+    
+        const rightMatrix = new Matrix([
+            [1,0,0,-cameraPos.x],
+            [0,1,0,-cameraPos.y],
+            [0,0,1,-cameraPos.z],
+            [0,0,0,1]
+        ])
+    
+        GL.modelViewMatrix = Matrix.mul(leftMatrix,rightMatrix);
+    }
+    
+    
+    // 创建投影矩阵
+    // http://www.songho.ca/opengl/gl_projectionmatrix.html
+    static createProjectionMatrix(left,right,bottom,top,near,far){
+    
+        GL.projectionMatrix = new Matrix([
+            [2*near/(right - left),0,(right + left)/(right - left),0],
+            [0,2*near/(top - bottom),(top + bottom)/(top - bottom),0],
+            [0,0,-(far + near)/(far - near),-2*far*near/(far - near)],
+            [0,0,-1,0]
+        ]);
+    }
 }
+
+GL.modelViewMatrix = new Matrix();
+GL.projectionMatrix = new Matrix();
+GL.viewportMatrix = new Matrix();
+
+class Shader{
+
+    static vertext(worldPosition){
+        // 将本地坐标转为屏幕坐标
+        // screen = viewport * projection * view * model * local
+        let matrix1 = Matrix.mul(GL.viewportMatrix,GL.projectionMatrix);
+        let matrix2 = Matrix.mul(matrix1,GL.modelViewMatrix);
+        let temp = matrix2.mulV(worldPosition);
+        
+        temp.x = Math.round(temp.x / temp.w);
+        temp.y = Math.round(temp.y / temp.w);
+        temp.z = temp.z / temp.w;
+        
+        return temp;
+    }
+
+    static fragment(texture,color){
+        let tempColor = new TGAColor(0,0,0,255);
+        let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
+        tempColor.r = texture.pixels[pixelIndex*4] * color.r / 255;
+        tempColor.g = texture.pixels[pixelIndex*4+1] * color.g / 255;
+        tempColor.b = texture.pixels[pixelIndex*4+2] * color.b / 255;
+        tempColor.a = texture.pixels[pixelIndex*4+3] * color.a / 255;
+
+        return {discard:false,finalColor:tempColor}
+    }
+}
+
+// 这样写是没法并行执行的
+Shader.varying_uv = {u:1,v:1};
 
 module.exports = GL;
 
