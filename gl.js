@@ -49,10 +49,12 @@ class GL {
         }
     }
 
-    static drawTriangle(worldPositions,uvCoordinates,vertextNormals,texture,zBuffer,image,color){
+    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,texture,normalMap,zBuffer,image,lightColor){
         let screenPositions = worldPositions.map((position,index)=>{
-            return Shader.vertext(position);
+            return Shader.vertex(position);
         });
+
+        // let {tangent,bitangent} = GL.calculateTangent(worldPositions,uvCoordinates);
 
         let boxMin = new math.Vector(image.width - 1,image.height - 1);
         let boxMax = new math.Vector(0,0);
@@ -77,24 +79,54 @@ class GL {
                 }
 
                 if(tempVector.z > zBuffer[i+image.width*j]){
+                    // init varying variable
                     Shader.varying_uv.u = uvCoordinates[0].x * bc.x + uvCoordinates[1].x * bc.y + uvCoordinates[2].x * bc.z;
                     Shader.varying_uv.v = uvCoordinates[0].y * bc.x + uvCoordinates[1].y * bc.y + uvCoordinates[2].y * bc.z;
-
                     Shader.varying_uv.u = Math.round(Shader.varying_uv.u * (texture.width - 1));
                     Shader.varying_uv.v = Math.round(Shader.varying_uv.v * (texture.height - 1));
 
 
                     // 因为当前的model matrix是单位矩阵，所以normal变量可以不变换直接使用
-                    Shader.varying_normal.x = vertextNormals[0].x * bc.x + vertextNormals[1].x * bc.y + vertextNormals[2].x * bc.z;
-                    Shader.varying_normal.y = vertextNormals[0].y * bc.x + vertextNormals[1].y * bc.y + vertextNormals[2].y * bc.z;
-                    Shader.varying_normal.z = vertextNormals[0].z * bc.x + vertextNormals[1].z * bc.y + vertextNormals[2].z * bc.z;
+                    Shader.varying_normal.x = vertexNormals[0].x * bc.x + vertexNormals[1].x * bc.y + vertexNormals[2].x * bc.z;
+                    Shader.varying_normal.y = vertexNormals[0].y * bc.x + vertexNormals[1].y * bc.y + vertexNormals[2].y * bc.z;
+                    Shader.varying_normal.z = vertexNormals[0].z * bc.x + vertexNormals[1].z * bc.y + vertexNormals[2].z * bc.z;
                     Shader.varying_normal.normalize();
+
+                    let tangent = new Vector(1,0,0);
+                    let bitangent = new Vector(0,1,0);
+
+                    tangent.x = tangents[0].x * bc.x + tangents[1].x * bc.y + tangents[2].x * bc.z;
+                    tangent.y = tangents[0].y * bc.x + tangents[1].y * bc.y + tangents[2].y * bc.z;
+                    tangent.z = tangents[0].z * bc.x + tangents[1].z * bc.y + tangents[2].z * bc.z;
+
+                    bitangent.x = bitangents[0].x * bc.x + bitangents[1].x * bc.y + bitangents[2].x * bc.z;
+                    bitangent.y = bitangents[0].y * bc.x + bitangents[1].y * bc.y + bitangents[2].y * bc.z;
+                    bitangent.z = bitangents[0].z * bc.x + bitangents[1].z * bc.y + bitangents[2].z * bc.z;
+
+                    tangent.normalize();
+                    bitangent.normalize();
+
+                    // let bitangent = Vector.cross(tangent,Shader.varying_normal);
+                    Shader.varying_tbn = new Matrix([
+                        [tangent.x,tangent.y,tangent.z,0],
+                        [bitangent.x,bitangent.y,bitangent.z,0],
+                        [Shader.varying_normal.x,Shader.varying_normal.y,Shader.varying_normal.z,0],
+                        [0,0,0,1]
+                    ]);
+
+                    // Shader.varying_tbn = new Matrix([
+                    //     [tangent.x,bitangent.x,Shader.varying_normal.x,0],
+                    //     [tangent.y,bitangent.y,Shader.varying_normal.y,0],
+                    //     [tangent.z,bitangent.z,Shader.varying_normal.z,0],
+                    //     [0,0,0,1]
+                    // ]);
 
                     Shader.varying_fragPos.x = worldPositions[0].x * bc.x + worldPositions[1].x * bc.y + worldPositions[2].x * bc.z;
                     Shader.varying_fragPos.y = worldPositions[0].y * bc.x + worldPositions[1].y * bc.y + worldPositions[2].y * bc.z;
                     Shader.varying_fragPos.z = worldPositions[0].z * bc.x + worldPositions[1].z * bc.y + worldPositions[2].z * bc.z;
-                    
-                    const {discard,finalColor} = Shader.fragment(texture,color);
+
+
+                    const {discard,finalColor} = Shader.fragment(texture,normalMap,lightColor);
                     if(!discard){
                         zBuffer[i+image.width*j] = tempVector.z;
                         image.set(i,j,finalColor);
@@ -103,6 +135,26 @@ class GL {
                 
             }
         }
+    }
+
+    static calculateTangent(worldPositions,uvCoordinates){
+        let tangent = new Vector(1,0,0);
+        let bitangent = new Vector(1,0,0);
+        let edge1 = Vector.sub(worldPositions[1],worldPositions[0]);
+        let edge2 = Vector.sub(worldPositions[2],worldPositions[0]);
+        let deltaUV1 = Vector.sub(uvCoordinates[1],uvCoordinates[0]);
+        let deltaUV2 = Vector.sub(uvCoordinates[2],uvCoordinates[0]);
+        
+
+        let f = 1.0/(deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+        tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
+        tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
+        tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
+
+        bitangent.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
+        bitangent.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
+        bitangent.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
+        return {tangent:tangent.normalize(),bitangent:bitangent.normalize()};
     }
 
     static barycentric(points,point){
@@ -167,12 +219,12 @@ class GL {
 GL.modelViewMatrix = new Matrix();
 GL.projectionMatrix = new Matrix();
 GL.viewportMatrix = new Matrix();
-GL.lightDir = new Vector(0,0,1);
+GL.lightPos = new Vector(0,0,1);
 GL.cameraPos = new Vector(0,0,3);
 
 class Shader{
 
-    static vertext(worldPosition){
+    static vertex(worldPosition){
         // 将本地坐标转为屏幕坐标
         // screen = viewport * projection * view * model * local
         let matrix1 = Matrix.mul(GL.viewportMatrix,GL.projectionMatrix);
@@ -186,20 +238,33 @@ class Shader{
         return temp;
     }
 
-    static fragment(texture,color){
-        let tempColor = new TGAColor(color.r,color.g,color.b,255);
-        let ambient = 0.1;
-        let diffuse = Math.max(0,Vector.dot(Shader.varying_normal,GL.lightDir));
-        let viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos);
-        let halfVector = Vector.add(viewDir,GL.lightDir).div(2).normalize();
+    static fragment(texture,normalMap,lightColor){
+        let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
+        let normal = new Vector(normalMap.pixels[pixelIndex*4],normalMap.pixels[pixelIndex*4+1],normalMap.pixels[pixelIndex*4+2]).normalize();
+        // normal = Shader.varying_normal;
 
-        let specular = Math.max(0,Vector.dot(Shader.varying_normal,halfVector)) * 0.2;
+        let tempColor = new TGAColor(lightColor.r,lightColor.g,lightColor.b,255);
+        let ambient = 0.4;
+        // let tangent_fragPos = Shader.varying_tbn.mulV(Shader.varying_fragPos);
+        // let tangent_lightPos = Shader.varying_tbn.mulV(GL.lightPos);
+        // let tangent_cameraPos = Shader.varying_tbn.mulV(GL.cameraPos);
+
+        let lightDir = Shader.varying_tbn.mulV(Vector.sub(GL.lightPos,Shader.varying_fragPos).normalize());
+        let viewDir = Shader.varying_tbn.mulV(Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize());
+
+        lightDir = Vector.sub(GL.lightPos,Shader.varying_fragPos).normalize();
+        viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize();
+
+        let diffuse = Math.max(0,Vector.dot(normal,lightDir));
+        let halfVector = Vector.add(viewDir,lightDir).normalize();
+
+        let specular = Math.pow(Math.max(0,Vector.dot(normal,halfVector)),3);
         let lightArg = Math.min(1,ambient + diffuse + specular);
         tempColor.r = tempColor.r * lightArg;
         tempColor.g = tempColor.g * lightArg;
         tempColor.b = tempColor.b * lightArg;
        
-        let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
+        
         let baseMap = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4+1],texture.pixels[pixelIndex*4+2],texture.pixels[pixelIndex*4+3]);
         tempColor.r = baseMap.r * tempColor.r / 255;
         tempColor.g = baseMap.g * tempColor.g / 255;
@@ -210,12 +275,18 @@ class Shader{
     }
 }
 
+Shader.attribute_tangent = new Vector(1,0,0);
+
 // 这样写是没法并行执行的
 Shader.varying_uv = {u:1,v:1};
 
 Shader.varying_normal = new Vector(0,0,1);
 
 Shader.varying_fragPos = new Vector(0,0,1);
+
+Shader.varying_tbn = new Matrix();
+
+// Shader.varying_
 
 module.exports = GL;
 
