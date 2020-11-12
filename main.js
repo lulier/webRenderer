@@ -21,12 +21,14 @@ function loadObj(){
     const image = new TGA.TGAImage(1024,1024);
     const objFile = fs.readFileSync("./obj/african_head/african_head.obj",{ encoding: 'utf8' });
     const texture = new TGALoader(fs.readFileSync("./obj/african_head/african_head_diffuse.tga"));
+    // const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm_tangent.tga"));
+    const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm.tga"));
     
     var mesh = new OBJ.Mesh(objFile);
-    console.log(Object.keys(mesh));
+    mesh.calculateTangentsAndBitangents();
 
     // init gl setting
-    GL.cameraPos = new Vector(0,0,3);
+    GL.cameraPos = new Vector(0.5,0.5,2);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.cameraPos,targetPosition,up);
@@ -39,11 +41,15 @@ function loadObj(){
 
     let worldCoordinates = [];
     let uvCoordinates = [];
-    let vertextNormals = [];
+    let vertexNormals = [];
+    let vertexTangent = [];
+    let vertexBitangent = [];
     for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
         worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
         uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1]));
-        vertextNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
+        vertexNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
+        vertexTangent.push(new Vector(mesh.tangents[i],mesh.tangents[i+1],mesh.tangents[i+2]));
+        vertexBitangent.push(new Vector(mesh.bitangents[i],mesh.bitangents[i+1],mesh.bitangents[i+2]));
     }
 
 
@@ -57,11 +63,24 @@ function loadObj(){
         const uv2 = uvCoordinates[mesh.indices[i+1]];
         const uv3 = uvCoordinates[mesh.indices[i+2]];
 
-        const normal1 = vertextNormals[mesh.indices[i]];
-        const normal2 = vertextNormals[mesh.indices[i+1]];
-        const normal3 = vertextNormals[mesh.indices[i+2]];
+        const normal1 = vertexNormals[mesh.indices[i]];
+        const normal2 = vertexNormals[mesh.indices[i+1]];
+        const normal3 = vertexNormals[mesh.indices[i+2]];
+
+        const tangent1 = vertexTangent[mesh.indices[i]];
+        const tangent2 = vertexTangent[mesh.indices[i+1]];
+        const tangent3 = vertexTangent[mesh.indices[i+2]];
+
+        const bitangent1 = vertexBitangent[mesh.indices[i]];
+        const bitangent2 = vertexBitangent[mesh.indices[i+1]];
+        const bitangent3 = vertexBitangent[mesh.indices[i+2]];
     
-        GL.drawTriangle([point1,point2,point3],[uv1,uv2,uv3],[normal1,normal2,normal3],texture,zBuffer,
+        GL.drawTriangle([point1,point2,point3],
+            [uv1,uv2,uv3],
+            [normal1,normal2,normal3],
+            [tangent1,tangent2,tangent3],
+            [bitangent1,bitangent2,bitangent3],
+            texture,normalMap,zBuffer,
             image,new TGAColor(255,255,255,255));
         
     }
