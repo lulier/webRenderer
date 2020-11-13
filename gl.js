@@ -49,12 +49,13 @@ class GL {
         }
     }
 
-    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,texture,normalMap,zBuffer,image,lightColor){
+    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,texture,normalMap,specularMap,zBuffer,image,lightColor){
         let screenPositions = worldPositions.map((position,index)=>{
             return Shader.vertex(position);
         });
 
-        // let {tangent,bitangent} = GL.calculateTangent(worldPositions,uvCoordinates);
+        let {tangent,bitangent} = GL.calculateTangent(worldPositions,uvCoordinates);
+        let normal = Vector.cross(tangent,bitangent);
 
         let boxMin = new math.Vector(image.width - 1,image.height - 1);
         let boxMax = new math.Vector(0,0);
@@ -92,8 +93,8 @@ class GL {
                     Shader.varying_normal.z = vertexNormals[0].z * bc.x + vertexNormals[1].z * bc.y + vertexNormals[2].z * bc.z;
                     Shader.varying_normal.normalize();
 
-                    let tangent = new Vector(1,0,0);
-                    let bitangent = new Vector(0,1,0);
+                    // let tangent = new Vector(1,0,0);
+                    // let bitangent = new Vector(0,1,0);
 
                     tangent.x = tangents[0].x * bc.x + tangents[1].x * bc.y + tangents[2].x * bc.z;
                     tangent.y = tangents[0].y * bc.x + tangents[1].y * bc.y + tangents[2].y * bc.z;
@@ -126,7 +127,7 @@ class GL {
                     Shader.varying_fragPos.z = worldPositions[0].z * bc.x + worldPositions[1].z * bc.y + worldPositions[2].z * bc.z;
 
 
-                    const {discard,finalColor} = Shader.fragment(texture,normalMap,lightColor);
+                    const {discard,finalColor} = Shader.fragment(texture,normalMap,specularMap,lightColor);
                     if(!discard){
                         zBuffer[i+image.width*j] = tempVector.z;
                         image.set(i,j,finalColor);
@@ -145,8 +146,8 @@ class GL {
         let deltaUV1 = Vector.sub(uvCoordinates[1],uvCoordinates[0]);
         let deltaUV2 = Vector.sub(uvCoordinates[2],uvCoordinates[0]);
         
-
-        let f = 1.0/(deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
+        const rInv = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+        let f = 1.0 / Math.abs(rInv < 0.0001 ? 1.0 : rInv);
         tangent.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
         tangent.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
         tangent.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
@@ -219,8 +220,9 @@ class GL {
 GL.modelViewMatrix = new Matrix();
 GL.projectionMatrix = new Matrix();
 GL.viewportMatrix = new Matrix();
-GL.lightPos = new Vector(0,0,1);
+GL.lightPos = new Vector(1,1,1);
 GL.cameraPos = new Vector(0,0,3);
+GL.lightDir = new Vector(1,1,1);
 
 class Shader{
 
@@ -238,38 +240,39 @@ class Shader{
         return temp;
     }
 
-    static fragment(texture,normalMap,lightColor){
+    static fragment(texture,normalMap,specularMap,lightColor){
         let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
         let normal = new Vector(normalMap.pixels[pixelIndex*4],normalMap.pixels[pixelIndex*4+1],normalMap.pixels[pixelIndex*4+2]).normalize();
         // normal = Shader.varying_normal;
 
         let tempColor = new TGAColor(lightColor.r,lightColor.g,lightColor.b,255);
-        let ambient = 0.4;
-        // let tangent_fragPos = Shader.varying_tbn.mulV(Shader.varying_fragPos);
-        // let tangent_lightPos = Shader.varying_tbn.mulV(GL.lightPos);
-        // let tangent_cameraPos = Shader.varying_tbn.mulV(GL.cameraPos);
 
-        let lightDir = Shader.varying_tbn.mulV(Vector.sub(GL.lightPos,Shader.varying_fragPos).normalize());
-        let viewDir = Shader.varying_tbn.mulV(Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize());
+        // let tangentFragPos = Shader.varying_tbn.mulV(Shader.varying_fragPos);
+        // let tangentCameraPos = Shader.varying_tbn.mulV(GL.cameraPos);
+        // let viewDir = Vector.sub(tangentCameraPos,tangentFragPos).normalize();
 
-        lightDir = Vector.sub(GL.lightPos,Shader.varying_fragPos).normalize();
-        viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize();
+        let lightDir = Shader.varying_tbn.mulV(GL.lightDir).normalize();
+        
+        let viewDir = Shader.varying_tbn.mulV(Vector.sub(GL.cameraPos,Shader.varying_fragPos)).normalize();
+
+        // lightDir = GL.lightDir.normalize();
+        // viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize();
+
+        // normal = Shader.varying_tbn.inverse().mulV(normal).normalize();
 
         let diffuse = Math.max(0,Vector.dot(normal,lightDir));
         let halfVector = Vector.add(viewDir,lightDir).normalize();
 
-        let specular = Math.pow(Math.max(0,Vector.dot(normal,halfVector)),3);
-        let lightArg = Math.min(1,ambient + diffuse + specular);
-        tempColor.r = tempColor.r * lightArg;
-        tempColor.g = tempColor.g * lightArg;
-        tempColor.b = tempColor.b * lightArg;
+        let specular = Math.pow(Math.max(0,Vector.dot(normal,halfVector)),specularMap.pixels[pixelIndex*4]);
+        // diffuse = 1;
+        // specular = 0;
        
         
         let baseMap = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4+1],texture.pixels[pixelIndex*4+2],texture.pixels[pixelIndex*4+3]);
-        tempColor.r = baseMap.r * tempColor.r / 255;
-        tempColor.g = baseMap.g * tempColor.g / 255;
-        tempColor.b = baseMap.b * tempColor.b / 255;
-        tempColor.a = baseMap.a * tempColor.a / 255;
+        tempColor.r = Math.min(10+baseMap.r*(diffuse+specular)*0.9,255);
+        tempColor.g = Math.min(10+baseMap.g*(diffuse+specular)*0.9,255);
+        tempColor.b = Math.min(10+baseMap.b*(diffuse+specular)*0.9,255);
+        tempColor.a = baseMap.a;
 
         return {discard:false,finalColor:tempColor}
     }
