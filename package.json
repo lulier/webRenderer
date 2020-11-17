@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/lulier/webRenderer#readme",
   "dependencies": {
+    "gl-matrix": "^3.3.0",
     "webgl-obj-loader": "^2.0.8"
   }
 }
