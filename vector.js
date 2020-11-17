@@ -685,6 +685,7 @@ Vector.prototype.normalize = function () {
         this.mul (1.0 / f);
 
     } else {
+        console.log(this);
         throw new Error ('Zero-length vector');
     }
     return this;

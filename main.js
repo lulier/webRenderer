@@ -21,14 +21,18 @@ function loadObj(){
     const image = new TGA.TGAImage(1024,1024);
     const objFile = fs.readFileSync("./obj/african_head/african_head.obj",{ encoding: 'utf8' });
     const texture = new TGALoader(fs.readFileSync("./obj/african_head/african_head_diffuse.tga"));
-    // const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm_tangent.tga"));
-    const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm.tga"));
+    const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm_tangent.tga"));
+    // const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm.tga"));
+    // const normalMap = new TGALoader(fs.readFileSync("./normal.tga"));
+    const specularMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_spec.tga"));
     
     var mesh = new OBJ.Mesh(objFile);
     mesh.calculateTangentsAndBitangents();
 
     // init gl setting
-    GL.cameraPos = new Vector(0.5,0.5,2);
+    GL.cameraPos = new Vector(0.7,0.7,2.2);
+    GL.lightPos = new Vector(1,2,1);
+    GL.lightDir = new Vector(1,1,1);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.cameraPos,targetPosition,up);
@@ -46,7 +50,7 @@ function loadObj(){
     let vertexBitangent = [];
     for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
         worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
-        uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1]));
+        uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1],0));
         vertexNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
         vertexTangent.push(new Vector(mesh.tangents[i],mesh.tangents[i+1],mesh.tangents[i+2]));
         vertexBitangent.push(new Vector(mesh.bitangents[i],mesh.bitangents[i+1],mesh.bitangents[i+2]));
@@ -80,17 +84,17 @@ function loadObj(){
             [normal1,normal2,normal3],
             [tangent1,tangent2,tangent3],
             [bitangent1,bitangent2,bitangent3],
-            texture,normalMap,zBuffer,
+            texture,normalMap,specularMap,zBuffer,
             image,new TGAColor(255,255,255,255));
         
     }
-
+    
     image.output();
 }
 
 function readTGAFile(){
     const image = new TGA.TGAImage(1024,1024);
-    const tgaFile = new TGA.TGALoader(fs.readFileSync("./african_head_diffuse.tga"))
+    const tgaFile = new TGA.TGALoader(fs.readFileSync("./african_head_nm_tangent.tga"))
     // for (let i = 0; i < tgaFile.pixels.length; i+=4) {
     //     if(tgaFile.pixels[i] > 0){
     //         console.log(i);
@@ -101,7 +105,9 @@ function readTGAFile(){
         for (let j = 0; j < image.width; j++) {
             let index = i * image.width + j;
             index = index * 4;
-            image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]));
+            // image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]));
+            image.set(j,i,new TGAColor(0,0,tgaFile.pixels[index+2],tgaFile[index+3]))
+            // console.log(tgaFile.pixels[index+3]);
             // image.set(j,i,redColor)
         }
     }

@@ -118,11 +118,11 @@ class TGALoader{
     check() {
         var header = this.header;
         /* What can we handle */
-        if (header.dataTypeCode != 2 && header.dataTypeCode != 10) {
+        if (header.dataTypeCode != 2 && header.dataTypeCode != 10 && header.dataTypeCode != 11) {
             console.error('Can only handle image type 2 and 10');
             return false;
         }
-        if (header.bitsPerPixel != 16 && 
+        if (header.bitsPerPixel != 8 && header.bitsPerPixel != 16 && 
             header.bitsPerPixel != 24 && header.bitsPerPixel != 32) {
             console.error('Can only handle pixel depths of 16, 24, and 32');
             return false;
@@ -145,7 +145,7 @@ class TGALoader{
         for (var i = 0; i < pixelCount; i++) {
             if (header.dataTypeCode === 2) {
                 this.addPixel(data, offset, i);
-            } else if (header.dataTypeCode === 10) {
+            } else if (header.dataTypeCode === 10 || header.dataTypeCode === 11) {
                 var flag = data[offset++];
                 var count = flag & 0x7f;
                 var isRLEChunk = flag & 0x80;
@@ -172,7 +172,12 @@ class TGALoader{
         var g = 255;
         var b = 255;
         var a = 255;
-        if (count === 3 || count === 4) {
+        if(count === 1){
+            r = arr[offset];
+            g = 0;
+            b = 0;
+            a = 255;
+        } else if (count === 3 || count === 4) {
             r = arr[offset + 2];
             g = arr[offset + 1];
             b = arr[offset];
