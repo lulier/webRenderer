@@ -23,17 +23,17 @@ function renderObj(){
     const model = new Model('african_head');
     
     // init gl setting
-    GL.cameraPos = new Vector(0.7,0.7,2.2);
+    GL.cameraPos = new Vector(0,0,3);
     GL.lightPos = new Vector(1,2,1);
     GL.lightDir = new Vector(1,1,1);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.cameraPos,targetPosition,up);
-    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,0.5);
+    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,0.9,1.5);
     GL.createViewportMatrix(0,0,image.width-1,image.height-1);
     let zBuffer = new Array(image.width*image.height);
     for (let i = 0; i < zBuffer.length; i++) {
-        zBuffer[i] = Number.MIN_SAFE_INTEGER;
+        zBuffer[i] = Number.MAX_SAFE_INTEGER;
     }
 
     let mesh = model.mesh;
