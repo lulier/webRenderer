@@ -204,8 +204,8 @@ class GL {
     // 创建视图矩阵
     static createViewMatrix(cameraPos,targetPosition,up){
         const forward = Vector.sub(cameraPos,targetPosition).normalize();
-        const right = Vector.cross(forward,up)
-        const realUp = Vector.cross(right,forward);
+        const right = Vector.cross(up,forward)
+        const realUp = Vector.cross(forward,right);
     
         const leftMatrix = new Matrix([
             [right.x,right.y,right.z,0],
