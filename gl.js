@@ -4,6 +4,7 @@ const { TGAColor, TGALoader, TGAImage } = require("./tga");
 const vector = require("./vector");
 const { glMatrix, mat3} = require("gl-matrix");
 var fs = require('fs');
+const { globalAgent } = require("https");
 
 class GL {
 
@@ -51,10 +52,22 @@ class GL {
         }
     }
 
-    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,texture,normalMap,specularMap,zBuffer,image,lightColor){
-        let screenPositions = worldPositions.map((position,index)=>{
+    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,model,zBuffer,image,lightColor){
+        let clipPositions = worldPositions.map((position,index)=>{
             return Shader.vertex(position);
         });
+
+        let ndcPositions = clipPositions.map((position,index)=>{
+            return new Vector(position.x,position.y,position.z,position.w);
+        });
+
+        let screenPositions = clipPositions.map((position,index)=>{
+            let temp = GL.viewportMatrix.mulV(position);
+            temp.x = Math.round(temp.x / temp.w);
+            temp.y = Math.round(temp.y / temp.w);
+            temp.z = temp.z / temp.w;
+            return temp;
+        })
 
         let boxMin = new math.Vector(image.width - 1,image.height - 1);
         let boxMax = new math.Vector(0,0);
@@ -72,19 +85,30 @@ class GL {
                 tempVector.x = i;
                 tempVector.y = j;
                 let bc = this.barycentric(screenPositions,tempVector);
-                tempVector.z = screenPositions[0].z * bc.x + screenPositions[1].z * bc.y + screenPositions[2].z * bc.z;
+                
                 // console.log(bc);
                 if(bc.x < 0 || bc.y < 0 || bc.z < 0){
                     continue;
                 }
 
-                if(tempVector.z > zBuffer[i+image.width*j]){
+                // https://github.com/ssloy/tinyrenderer/wiki/Technical-difficulties-linear-interpolation-with-perspective-deformations
+                let bc_clip = new Vector(bc.x,bc.y,bc.z);
+                bc_clip.x = bc_clip.x / clipPositions[0].w;
+                bc_clip.y = bc_clip.y / clipPositions[1].w;
+                bc_clip.z = bc_clip.z / clipPositions[2].w;
+
+                let tempValue = bc_clip.x + bc_clip.y + bc_clip.z;
+                bc_clip.x = bc_clip.x / tempValue;
+                bc_clip.y = bc_clip.y / tempValue;
+                bc_clip.z = bc_clip.z / tempValue;
+
+                bc = bc_clip;
+
+                tempVector.z = ndcPositions[0].z * bc.x + ndcPositions[1].z * bc.y + ndcPositions[2].z * bc.z;
+                if(tempVector.z < zBuffer[i+image.width*j]){
                     // init varying variable
                     Shader.varying_uv.u = uvCoordinates[0].x * bc.x + uvCoordinates[1].x * bc.y + uvCoordinates[2].x * bc.z;
                     Shader.varying_uv.v = uvCoordinates[0].y * bc.x + uvCoordinates[1].y * bc.y + uvCoordinates[2].y * bc.z;
-                    Shader.varying_uv.u = Math.round(Shader.varying_uv.u * (texture.width - 1));
-                    Shader.varying_uv.v = Math.round(Shader.varying_uv.v * (texture.height - 1));
-
 
                     // 因为当前的model matrix是单位矩阵，所以normal变量可以不变换直接使用
                     Shader.varying_normal.x = vertexNormals[0].x * bc.x + vertexNormals[1].x * bc.y + vertexNormals[2].x * bc.z;
@@ -119,7 +143,7 @@ class GL {
                     Shader.varying_fragPos.z = worldPositions[0].z * bc.x + worldPositions[1].z * bc.y + worldPositions[2].z * bc.z;
 
 
-                    const {discard,finalColor} = Shader.fragment(texture,normalMap,specularMap,lightColor);
+                    const {discard,finalColor} = Shader.fragment(model,lightColor);
                     if(!discard){
                         zBuffer[i+image.width*j] = tempVector.z;
                         image.set(i,j,finalColor);
@@ -204,8 +228,8 @@ class GL {
     // 创建视图矩阵
     static createViewMatrix(cameraPos,targetPosition,up){
         const forward = Vector.sub(cameraPos,targetPosition).normalize();
-        const right = Vector.cross(up,forward)
-        const realUp = Vector.cross(forward,right);
+        const right = Vector.cross(up,forward).normalize();
+        const realUp = Vector.cross(forward,right).normalize();
     
         const leftMatrix = new Matrix([
             [right.x,right.y,right.z,0],
@@ -248,28 +272,16 @@ GL.lightDir = new Vector(1,1,1);
 class Shader{
 
     static vertex(worldPosition){
-        // 将本地坐标转为屏幕坐标
-        // screen = viewport * projection * view * model * local
-        let matrix1 = Matrix.mul(GL.viewportMatrix,GL.projectionMatrix);
-        let matrix2 = Matrix.mul(matrix1,GL.modelViewMatrix);
-        let temp = matrix2.mulV(worldPosition);
-        
-        temp.x = Math.round(temp.x / temp.w);
-        temp.y = Math.round(temp.y / temp.w);
-        temp.z = temp.z / temp.w;
-        
-        return temp;
+        // 将本地坐标转为裁剪空间坐标
+        // clip = projection * view * model * local
+        let matrix = Matrix.mul(GL.projectionMatrix,GL.modelViewMatrix);
+        let clip = matrix.mulV(worldPosition);        
+        return clip;
     }
 
-    static fragment(texture,normalMap,specularMap,lightColor){
-        let pixelIndex = Shader.varying_uv.u+Shader.varying_uv.v*texture.width;
-        let normal = new Vector(normalMap.pixels[pixelIndex*4]/255,normalMap.pixels[pixelIndex*4+1]/255,normalMap.pixels[pixelIndex*4+2]/255);
-        normal.x = normal.x * 2 -1;
-        normal.y = normal.y * 2 -1;
-        normal.z = normal.z * 2 -1;
-        // normal = Shader.varying_tbn.inverse().mulV(normal);
-
-        normal.normalize();
+    // 这里应该是传入图片的sampler，为了方便直接传入model了
+    static fragment(model,lightColor){
+        let normal = model.getNormalMap(Shader.varying_uv.u,Shader.varying_uv.v);
 
         let tempColor = new TGAColor(lightColor.r,lightColor.g,lightColor.b,255);
 
@@ -283,15 +295,16 @@ class Shader{
         let diffuse = Math.max(0,normal.x * lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z);
         let halfVector = Vector.add(viewDir,lightDir).normalize();
 
-        let specular = Math.pow(Math.max(0,normal.x * halfVector.x+normal.y*halfVector.y+normal.z*halfVector.z),specularMap.pixels[pixelIndex*4]*2);
-       
-        
-        let baseMap = new TGAColor(texture.pixels[pixelIndex*4],texture.pixels[pixelIndex*4+1],texture.pixels[pixelIndex*4+2],texture.pixels[pixelIndex*4+3]);
+        let specular = 1;
+        if(model.specularMap){
+            specular = Math.pow(Math.max(0,normal.x * halfVector.x+normal.y*halfVector.y+normal.z*halfVector.z),
+                model.getSpecularMap(Shader.varying_uv.u,Shader.varying_uv.v)+5);
+        }
+
+        let baseMap = model.getBaseMap(Shader.varying_uv.u,Shader.varying_uv.v);
         tempColor.r = Math.min(20+baseMap.r*(diffuse+specular),255);
         tempColor.g = Math.min(20+baseMap.g*(diffuse+specular),255);
         tempColor.b = Math.min(20+baseMap.b*(diffuse+specular),255);
-        tempColor.a = baseMap.a;
-
         return {discard:false,finalColor:tempColor}
     }
 }

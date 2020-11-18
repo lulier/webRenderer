@@ -3,59 +3,45 @@ const TGA = require('./tga');
 const GL = require("./gl");
 const math = require("./vector");
 const { Vector, Matrix } = require('./vector');
-var OBJ = require('webgl-obj-loader');
+const OBJ = require('webgl-obj-loader');
 const { TGAColor, TGALoader } = require('./tga');
 const vector = require('./vector');
 const tga = require('./tga');
+const Model = require('./model');
 
 const whiteColor = new TGA.TGAColor(255,255,255,255);
 const redColor = new TGA.TGAColor(255,0,0,255);
 const blackColor = new TGA.TGAColor(0,0,0,255);
 
 (function(){
-    loadObj();
+    renderObj();
     // readTGAFile();
 })()
 
-function loadObj(){
+function renderObj(){
     const image = new TGA.TGAImage(1024,1024);
-    const objFile = fs.readFileSync("./obj/african_head/african_head.obj",{ encoding: 'utf8' });
-    const texture = new TGALoader(fs.readFileSync("./obj/african_head/african_head_diffuse.tga"));
-    const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm_tangent.tga"));
-    // const normalMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_nm.tga"));
-    // const normalMap = new TGALoader(fs.readFileSync("./normal.tga"));
-    const specularMap = new TGALoader(fs.readFileSync("./obj/african_head/african_head_spec.tga"));
+    const model = new Model('african_head');
     
-    var mesh = new OBJ.Mesh(objFile);
-    mesh.calculateTangentsAndBitangents();
-
     // init gl setting
-    GL.cameraPos = new Vector(0.7,0.7,2.2);
+    GL.cameraPos = new Vector(0,0,3);
     GL.lightPos = new Vector(1,2,1);
     GL.lightDir = new Vector(1,1,1);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.cameraPos,targetPosition,up);
-    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,0.5);
+    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,0.9,1.5);
     GL.createViewportMatrix(0,0,image.width-1,image.height-1);
     let zBuffer = new Array(image.width*image.height);
     for (let i = 0; i < zBuffer.length; i++) {
-        zBuffer[i] = Number.MIN_SAFE_INTEGER;
+        zBuffer[i] = Number.MAX_SAFE_INTEGER;
     }
 
-    let worldCoordinates = [];
-    let uvCoordinates = [];
-    let vertexNormals = [];
-    let vertexTangent = [];
-    let vertexBitangent = [];
-    for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
-        worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
-        uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1],0));
-        vertexNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
-        vertexTangent.push(new Vector(mesh.tangents[i],mesh.tangents[i+1],mesh.tangents[i+2]));
-        vertexBitangent.push(new Vector(mesh.bitangents[i],mesh.bitangents[i+1],mesh.bitangents[i+2]));
-    }
-
+    let mesh = model.mesh;
+    let worldCoordinates = model.worldCoordinates;
+    let uvCoordinates = model.uvCoordinates;
+    let vertexNormals = model.vertexNormals;
+    let vertexTangent = model.vertexTangent;
+    let vertexBitangent = model.vertexBitangent;
 
     // iterate to draw all triangles
     for (let i = 0; i < mesh.indices.length; i+=3) {
@@ -84,7 +70,7 @@ function loadObj(){
             [normal1,normal2,normal3],
             [tangent1,tangent2,tangent3],
             [bitangent1,bitangent2,bitangent3],
-            texture,normalMap,specularMap,zBuffer,
+            model,zBuffer,
             image,new TGAColor(255,255,255,255));
         
     }
