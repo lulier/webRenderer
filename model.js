@@ -1,7 +1,6 @@
 var fs = require('fs');
 const OBJ = require('webgl-obj-loader');
 const { TGAColor, TGALoader, TGAImage } = require('./tga');
-const { modelViewMatrix } = require('./gl');
 const { Vector, Matrix } = require('./vector');
 
 class Model{
@@ -54,6 +53,10 @@ class Model{
     }
 
     getNormalMap(u,v){
+        u < 0 ? u = 0: u = u;
+        u > 1 ? u = 1: u = u;
+        v < 0 ? v = 0: v = v;
+        v > 1 ? v = 1: v = v;
         let tempUV = {u:1,v:1};
         tempUV.u = Math.round(u * (this.normalMap.width - 1));
         tempUV.v = Math.round(v * (this.normalMap.height - 1));
