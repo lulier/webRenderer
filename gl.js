@@ -52,9 +52,9 @@ class GL {
         }
     }
 
-    static drawTriangle(worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,model,zBuffer,image,lightColor){
+    static drawTriangle(shader,worldPositions,uvCoordinates,vertexNormals,tangents,bitangents,model,zBuffer,image,lightColor){
         let clipPositions = worldPositions.map((position,index)=>{
-            return Shader.vertex(position);
+            return shader.vertex(position);
         });
 
         let ndcPositions = clipPositions.map((position,index)=>{
@@ -104,7 +104,7 @@ class GL {
 
                 bc = bc_clip;
 
-                tempVector.z = ndcPositions[0].z * bc.x + ndcPositions[1].z * bc.y + ndcPositions[2].z * bc.z;
+                tempVector.z = screenPositions[0].z * bc.x + screenPositions[1].z * bc.y + screenPositions[2].z * bc.z;
                 if(tempVector.z < zBuffer[i+image.width*j]){
                     // init varying variable
                     Shader.varying_uv.u = uvCoordinates[0].x * bc.x + uvCoordinates[1].x * bc.y + uvCoordinates[2].x * bc.z;
@@ -143,7 +143,7 @@ class GL {
                     Shader.varying_fragPos.z = worldPositions[0].z * bc.x + worldPositions[1].z * bc.y + worldPositions[2].z * bc.z;
 
 
-                    const {discard,finalColor} = Shader.fragment(model,lightColor);
+                    const {discard,finalColor} = shader.fragment(model,lightColor);
                     if(!discard){
                         zBuffer[i+image.width*j] = tempVector.z;
                         image.set(i,j,finalColor);
@@ -218,7 +218,7 @@ class GL {
         const matrix = new Matrix([
             [width/2,0,0,width/2+startx],
             [0,height/2,0,height/2+starty],
-            [0,0,depth/2,depth/2],
+            [0,0,1,0],
             [0,0,0,1]
         ]);
     
@@ -271,45 +271,23 @@ GL.lightDir = new Vector(1,1,1);
 
 class Shader{
 
-    static vertex(worldPosition){
-        // 将本地坐标转为裁剪空间坐标
-        // clip = projection * view * model * local
-        let matrix = Matrix.mul(GL.projectionMatrix,GL.modelViewMatrix);
-        let clip = matrix.mulV(worldPosition);        
-        return clip;
-    }
-
-    // 这里应该是传入图片的sampler，为了方便直接传入model了
-    static fragment(model,lightColor){
-        let normal = model.getNormalMap(Shader.varying_uv.u,Shader.varying_uv.v);
-
-        let tempColor = new TGAColor(lightColor.r,lightColor.g,lightColor.b,255);
-
-        let lightDir = Shader.varying_tbn.mulV(GL.lightDir).normalize();
-        
-        let viewDir = Shader.varying_tbn.mulV(Vector.sub(GL.cameraPos,Shader.varying_fragPos)).normalize();
-
-        // lightDir = GL.lightDir.normalize();
-        // viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize();
-
-        let diffuse = Math.max(0,normal.x * lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z);
-        let halfVector = Vector.add(viewDir,lightDir).normalize();
-
-        let specular = 1;
-        if(model.specularMap){
-            specular = Math.pow(Math.max(0,normal.x * halfVector.x+normal.y*halfVector.y+normal.z*halfVector.z),
-                model.getSpecularMap(Shader.varying_uv.u,Shader.varying_uv.v)+5);
+    constructor(vertex,fragment){
+        if(vertex){
+            this.vertex = vertex;
+        } else {
+            this.vertex = Shader.cameraVertex;
         }
-
-        let baseMap = model.getBaseMap(Shader.varying_uv.u,Shader.varying_uv.v);
-        tempColor.r = Math.min(20+baseMap.r*(diffuse+specular),255);
-        tempColor.g = Math.min(20+baseMap.g*(diffuse+specular),255);
-        tempColor.b = Math.min(20+baseMap.b*(diffuse+specular),255);
-        return {discard:false,finalColor:tempColor}
+        
+        if(fragment){
+            this.fragment = fragment;
+        } else {
+            this.fragment = Shader.cameraFragment;
+        }
+        
     }
 }
 
-Shader.attribute_tangent = new Vector(1,0,0);
+Shader.uniform_ShadowMatrix = new Matrix();
 
 // 这样写是没法并行执行的
 Shader.varying_uv = {u:1,v:1};
@@ -320,5 +298,54 @@ Shader.varying_fragPos = new Vector(0,0,1);
 
 Shader.varying_tbn = new Matrix();
 
-module.exports = GL;
+Shader.cameraVertex = function (worldPosition){
+    // 将本地坐标转为裁剪空间坐标
+    // clip = projection * view * model * local
+    let matrix = Matrix.mul(GL.projectionMatrix,GL.modelViewMatrix);
+    let clip = matrix.mulV(worldPosition);        
+    return clip;
+}
+
+Shader.cameraFragment = function(model,lightColor){
+    let normal = model.getNormalMap(Shader.varying_uv.u,Shader.varying_uv.v);
+
+    let tempColor = new TGAColor(lightColor.r,lightColor.g,lightColor.b,255);
+
+    let lightDir = Shader.varying_tbn.mulV(GL.lightDir).normalize();
+    
+    let viewDir = Shader.varying_tbn.mulV(Vector.sub(GL.cameraPos,Shader.varying_fragPos)).normalize();
+
+    // lightDir = GL.lightDir.normalize();
+    // viewDir = Vector.sub(GL.cameraPos,Shader.varying_fragPos).normalize();
+
+    // shadow calculation
+
+    let shadowFactor = 1;
+    if(model.shadowMap){
+        let shadowScreenPosition = Shader.uniform_ShadowMatrix.mulV(Shader.varying_fragPos);
+        shadowScreenPosition.x = Math.round(shadowScreenPosition.x/shadowScreenPosition.w);
+        shadowScreenPosition.y = Math.round(shadowScreenPosition.y/shadowScreenPosition.w);
+        shadowScreenPosition.z = shadowScreenPosition.z/shadowScreenPosition.w;
+        let shadowIndex = shadowScreenPosition.x + 1024 * shadowScreenPosition.y;
+        shadowFactor = 0.3 + 0.7 * (model.shadowMap[shadowIndex] >= shadowScreenPosition.z - 0.04?1:0);
+    }
+
+
+    let diffuse = Math.max(0,normal.x * lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z) * 3;
+    let halfVector = Vector.add(viewDir,lightDir).normalize();
+
+    let specular = 1;
+    if(model.specularMap){
+        specular = Math.pow(Math.max(0,normal.x * halfVector.x+normal.y*halfVector.y+normal.z*halfVector.z),
+            model.getSpecularMap(Shader.varying_uv.u,Shader.varying_uv.v)+5);
+    }
+
+    let baseMap = model.getBaseMap(Shader.varying_uv.u,Shader.varying_uv.v);
+    tempColor.r = Math.min(20+baseMap.r*(diffuse+specular)*shadowFactor,255);
+    tempColor.g = Math.min(20+baseMap.g*(diffuse+specular)*shadowFactor,255);
+    tempColor.b = Math.min(20+baseMap.b*(diffuse+specular)*shadowFactor,255);
+    return {discard:false,finalColor:tempColor}
+}
+
+module.exports = {GL,Shader};
 
