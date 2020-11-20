@@ -25,6 +25,10 @@ class Model{
         this.initVertexData();
     }
 
+    setShadowMap(shadowBuffer){
+        this.shadowMap = shadowBuffer;
+    }
+
     initVertexData(){
         let mesh = this.mesh;
         this.worldCoordinates = [];

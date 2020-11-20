@@ -15,23 +15,22 @@ const redColor = new TGA.TGAColor(255,0,0,255);
 const blackColor = new TGA.TGAColor(0,0,0,255);
 
 (function(){
-    rednerShadow();
-    renderObj();
+    const model = rednerShadow();
+    renderObj(model);
     // readTGAFile();
 })()
 
-function renderObj(){
+function renderObj(model){
     const image = new TGA.TGAImage(1024,1024);
-    const model = new Model('diablo3_pose');
     
     // init gl setting
-    GL.cameraPos = new Vector(0.6,0,2);
+    GL.cameraPos = new Vector(0,0,2);
     GL.lightPos = new Vector(1,2,1);
     GL.lightDir = new Vector(0,3,2);
     const targetPosition = new Vector(0,0.7,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.cameraPos,targetPosition,up);
-    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,2.5,3);
+    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,3);
     GL.createViewportMatrix(0,0,image.width-1,image.height-1);
     let zBuffer = new Array(image.width*image.height);
     for (let i = 0; i < zBuffer.length; i++) {
@@ -142,7 +141,9 @@ function rednerShadow(){
         
     }
 
-    GL.shadowMap = zBuffer;
+    model.setShadowMap(zBuffer);
+    
+    return model;
 }
 
 function readTGAFile(){

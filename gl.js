@@ -268,7 +268,6 @@ GL.viewportMatrix = new Matrix();
 GL.lightPos = new Vector(1,1,1);
 GL.cameraPos = new Vector(0,0,3);
 GL.lightDir = new Vector(1,1,1);
-GL.shadowMap = null;
 
 class Shader{
 
@@ -322,15 +321,13 @@ Shader.cameraFragment = function(model,lightColor){
     // shadow calculation
 
     let shadowFactor = 1;
-    if(GL.shadowMap){
+    if(model.shadowMap){
         let shadowScreenPosition = Shader.uniform_ShadowMatrix.mulV(Shader.varying_fragPos);
         shadowScreenPosition.x = Math.round(shadowScreenPosition.x/shadowScreenPosition.w);
         shadowScreenPosition.y = Math.round(shadowScreenPosition.y/shadowScreenPosition.w);
         shadowScreenPosition.z = shadowScreenPosition.z/shadowScreenPosition.w;
         let shadowIndex = shadowScreenPosition.x + 1024 * shadowScreenPosition.y;
-        
-
-        shadowFactor = 0.3 + 0.7 * (GL.shadowMap[shadowIndex] >= shadowScreenPosition.z - 0.04?1:0);
+        shadowFactor = 0.3 + 0.7 * (model.shadowMap[shadowIndex] >= shadowScreenPosition.z - 0.04?1:0);
     }
 
 
