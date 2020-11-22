@@ -57,9 +57,9 @@ class GL {
             return shader.vertex(position);
         });
 
-        let ndcPositions = clipPositions.map((position,index)=>{
-            return new Vector(position.x,position.y,position.z,position.w);
-        });
+        // let ndcPositions = clipPositions.map((position,index)=>{
+        //     return new Vector(position.x,position.y,position.z,position.w);
+        // });
 
         let screenPositions = clipPositions.map((position,index)=>{
             let temp = GL.viewportMatrix.mulV(position);
@@ -331,7 +331,7 @@ Shader.cameraFragment = function(model,lightColor){
     }
 
 
-    let diffuse = Math.max(0,normal.x * lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z) * 3;
+    let diffuse = Math.max(0,normal.x * lightDir.x+normal.y*lightDir.y+normal.z*lightDir.z);
     let halfVector = Vector.add(viewDir,lightDir).normalize();
 
     let specular = 1;
