@@ -8,34 +8,39 @@ const vector = require('./vector');
 const tga = require('./tga');
 const Model = require('./model');
 const { GL,Shader } = require('./gl');
-const { Z_UNKNOWN } = require('zlib');
 
 const whiteColor = new TGA.TGAColor(255,255,255,255);
 const redColor = new TGA.TGAColor(255,0,0,255);
 const blackColor = new TGA.TGAColor(0,0,0,255);
 
 (function(){
-    const model = rednerShadow();
-    renderObj(model);
-    // readTGAFile();
-})()
-
-function renderObj(model){
-    const image = new TGA.TGAImage(1024,1024);
-    
     // init gl setting
-    GL.cameraPos = new Vector(0,0,2);
+    GL.cameraPos = new Vector(0.7,0.7,2);
     GL.lightPos = new Vector(1,2,1);
-    GL.lightDir = new Vector(0,3,2);
-    const targetPosition = new Vector(0,0.7,0);
-    const up = new Vector(0,1,0);
-    GL.createViewMatrix(GL.cameraPos,targetPosition,up);
-    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,3);
-    GL.createViewportMatrix(0,0,image.width-1,image.height-1);
+    GL.lightDir = new Vector(0,1,2);
+    const image = new TGA.TGAImage(1024,1024);
     let zBuffer = new Array(image.width*image.height);
     for (let i = 0; i < zBuffer.length; i++) {
         zBuffer[i] = Number.MAX_SAFE_INTEGER;
     }
+    
+    const modelEI = new Model('african_head_eye_inner');
+    renderObj(image,modelEI,zBuffer,false);
+
+    const model = new Model('african_head');
+    
+    rednerShadow(model);
+    renderObj(image,model,zBuffer,true);
+
+    
+})()
+
+function renderObj(image,model,zBuffer,shouldOutput){
+    const targetPosition = new Vector(0,0,0);
+    const up = new Vector(0,1,0);
+    GL.createViewMatrix(GL.cameraPos,targetPosition,up);
+    GL.createProjectionMatrix(-0.5,0.5,-0.5,0.5,1,3);
+    GL.createViewportMatrix(0,0,image.width-1,image.height-1);
 
     let mesh = model.mesh;
     let worldCoordinates = model.worldCoordinates;
@@ -45,7 +50,6 @@ function renderObj(model){
     let vertexBitangent = model.vertexBitangent;
 
     let shader = new Shader();
-
     // iterate to draw all triangles
     for (let i = 0; i < mesh.indices.length; i+=3) {
         const point1 = worldCoordinates[mesh.indices[i]];
@@ -78,13 +82,13 @@ function renderObj(model){
         
     }
 
-    image.output();
+    if(shouldOutput){
+        image.output();
+    }
 }
 
-function rednerShadow(){
+function rednerShadow(model){
     const image = new TGA.TGAImage(1024,1024);
-    const model = new Model('diablo3_pose');
-    GL.lightDir = new Vector(0,3,2);
     const targetPosition = new Vector(0,0,0);
     const up = new Vector(0,1,0);
     GL.createViewMatrix(GL.lightDir,targetPosition,up);
@@ -106,7 +110,7 @@ function rednerShadow(){
     let vertexBitangent = model.vertexBitangent;
 
     let shader = new Shader(Shader.cameraVertex,()=>{
-        return {discard:false,finalColor:new TGAColor()}
+        return {discard:false,finalColor:new TGAColor(0,0,0,255)}
     });
 
     // iterate to draw all triangles
@@ -142,13 +146,11 @@ function rednerShadow(){
     }
 
     model.setShadowMap(zBuffer);
-    
-    return model;
 }
 
 function readTGAFile(){
     const image = new TGA.TGAImage(1024,1024);
-    const tgaFile = new TGA.TGALoader(fs.readFileSync("./african_head_nm_tangent.tga"))
+    const tgaFile = new TGA.TGALoader(fs.readFileSync("./stoneHead_diffuse.tga"))
     // for (let i = 0; i < tgaFile.pixels.length; i+=4) {
     //     if(tgaFile.pixels[i] > 0){
     //         console.log(i);
@@ -160,7 +162,7 @@ function readTGAFile(){
             let index = i * image.width + j;
             index = index * 4;
             // image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]));
-            image.set(j,i,new TGAColor(0,0,tgaFile.pixels[index+2],tgaFile[index+3]))
+            image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]))
             // console.log(tgaFile.pixels[index+3]);
             // image.set(j,i,redColor)
         }

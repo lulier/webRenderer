@@ -38,6 +38,7 @@ class Model{
         this.vertexBitangent = [];
 
         for (let i = 0,j=0; i < mesh.vertices.length && j < mesh.textures.length; i+=3,j+=2) {
+            // this.worldCoordinates.push(new Vector(mesh.vertices[i]/20,mesh.vertices[i+1]/20,mesh.vertices[i+2]/20));
             this.worldCoordinates.push(new Vector(mesh.vertices[i],mesh.vertices[i+1],mesh.vertices[i+2]));
             this.uvCoordinates.push(new Vector(mesh.textures[j],mesh.textures[j+1],0));
             this.vertexNormals.push(new Vector(mesh.vertexNormals[i],mesh.vertexNormals[i+1],mesh.vertexNormals[i+2]));
