@@ -162,7 +162,7 @@ function readTGAFile(){
             let index = i * image.width + j;
             index = index * 4;
             // image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]));
-            image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile[index+3]))
+            image.set(j,i,new TGAColor(tgaFile.pixels[index],tgaFile.pixels[index+1],tgaFile.pixels[index+2],tgaFile.pixels[index+3]))
             // console.log(tgaFile.pixels[index+3]);
             // image.set(j,i,redColor)
         }
