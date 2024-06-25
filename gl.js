@@ -206,7 +206,7 @@ class GL {
     static barycentric(points,point){
         let result = Vector.cross(new Vector(points[1].x - points[0].x,points[2].x - points[0].x,points[0].x - point.x),
                             new Vector(points[1].y - points[0].y,points[2].y - points[0].y,points[0].y - point.y));
-        if(!result.z){
+        if(Math.abs(result.z) < 0.0001){
             return new Vector(-1,1,1);
         }
 
